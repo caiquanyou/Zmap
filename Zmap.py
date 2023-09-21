@@ -9,7 +9,7 @@ class Zmap:
                 stdata=None,
                 bulkX=None, 
                 bulkY=None, 
-                enes=None, 
+                genes=None, 
                 histology=None, 
                 cluster_time=1, 
                 custom_label=None,
