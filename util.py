@@ -9,7 +9,7 @@ from scipy.sparse import issparse
 import nmslib
 import random
 # import SpaGCN as spg
-from custom_SpaGCN import *
+from .custom_SpaGCN import *
 
 def transform(label:pd.Series):
     """
