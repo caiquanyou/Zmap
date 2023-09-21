@@ -3,4 +3,4 @@ from .util import *
 from .Zmap import *
 from .ot_model import *
 from .model import *
-from custom_SpaGCN import *
+from .custom_SpaGCN import *
