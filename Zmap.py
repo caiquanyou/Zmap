@@ -34,7 +34,7 @@ class Zmap:
         self.genes = genes
         self.histology = histology
         self.cluster_time = cluster_time
-        self.cluster_label = None
+        self.cluster_label = custom_label
         self.pca = pca
         self.n_pcs = n_pcs
         self.pc_frac = pc_frac
