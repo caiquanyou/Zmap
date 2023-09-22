@@ -154,7 +154,7 @@ def random_cluster(stdata,label,n_pcs=50,pc_frac=0.5,samples_time=1,shape="squar
     else:
         pca.fit(stdata.X)
         embed=pca.transform(stdata.X)
-    selected_pcs_indices = random.sample(range(n_pcs), n_pcs*pc_frac)
+    selected_pcs_indices = random.sample(range(n_pcs), int(n_pcs*pc_frac))
     selected_pcs = embed[:, selected_pcs_indices]
     SpaGCN_cluster(selected_pcs, stdata, label, shape=shape)
 
