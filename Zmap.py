@@ -16,6 +16,7 @@ class Zmap:
                 pca=None, 
                 n_pcs=50, 
                 pc_frac=0.5, 
+                target_num = 10,
                 cluster_thres=None,
                 emptygrid=None,
                 shape="square", 
@@ -40,6 +41,7 @@ class Zmap:
         self.pca = pca
         self.n_pcs = n_pcs
         self.pc_frac = pc_frac
+        self.target_num = target_num
         self.cluster_thres = cluster_thres
         self.cluster_matrix = None
         self.spot_matrix = None
