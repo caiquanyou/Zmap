@@ -17,6 +17,7 @@ class Zmap:
                 n_pcs=50, 
                 pc_frac=0.5, 
                 cluster_thres=None,
+                emptygrid=None,
                 shape="square", 
                 device='cpu'):
         """
@@ -30,7 +31,7 @@ class Zmap:
         self.scLocX = None
         self.bulkY = bulkY
         self.scLocY = None
-        self.emptygrid = None
+        self.emptygrid = emptygrid
         self.genes = genes
         self.histology = histology
         self.cluster_time = cluster_time
