@@ -35,7 +35,8 @@ class Zmap:
         self.genes = genes
         self.histology = histology
         self.cluster_time = cluster_time
-        self.cluster_label = custom_label
+        self.cluster_label = None
+        self.custom_label = custom_label
         self.pca = pca
         self.n_pcs = n_pcs
         self.pc_frac = pc_frac
@@ -57,8 +58,8 @@ class Zmap:
             self.bulkX = generate_Xstrips(self.stdata)
             self.bulkY = generate_Ystrips(self.stdata)
             self.cluster_label = []
-            if custom_label is not None:
-                self.cluster_label.append(custom_label)
+            if self.custom_label is not None:
+                self.cluster_label.append(self.custom_label)
                 cluster_time = self.cluster_time - 1
                 self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
             else:
