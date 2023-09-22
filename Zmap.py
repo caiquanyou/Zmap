@@ -123,7 +123,7 @@ def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
     y_bulk = generate_Ystrips(stdata)
     bx1 = sc.AnnData(X=x_bulk,var=stdata.var)
     bx2 = sc.AnnData(X=y_bulk,var=stdata.var)
-    pp_data(scadata,bx1,bx2,genes)
+    preprocess(scadata,bx1,genes)
     overlap_genes = scadata.uns["overlap"]
     S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
     Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
