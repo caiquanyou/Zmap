@@ -63,6 +63,7 @@ class Zmap:
                 cluster_time = self.cluster_time - 1
                 self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
             else:
+                cluster_time = self.cluster_time
                 self.cluster_matrix = 0
             if cluster_time == 0:
                 self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix,genes=self.genes,device = self.device)
