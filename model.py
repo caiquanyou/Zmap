@@ -303,5 +303,5 @@ class cell2spots:
             loss.backward()
             optimizer.step()
         with torch.no_grad():
-            output = softmax(self.M, dim=1).detach().numpy()
+            output = softmax(self.M, dim=1).cpu().numpy()
             return output
