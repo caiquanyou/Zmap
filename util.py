@@ -139,7 +139,7 @@ def preprocess(scdata, stdata ,genes=None):
     scdata.uns["overlap"] = genes
 
 
-def random_cluster(stdata,label,n_pcs=50,pc_frac=0.5,samples_time=1,shape="square"):
+def random_cluster(stdata,label,n_pcs=50,pc_frac=0.5,samples_time=1,shape="square",target_num=10):
     """Generate random cluster label
     Args:
         stdata (anndata): Spatial matrix
@@ -156,9 +156,9 @@ def random_cluster(stdata,label,n_pcs=50,pc_frac=0.5,samples_time=1,shape="squar
         embed=pca.transform(stdata.X)
     selected_pcs_indices = random.sample(range(n_pcs), int(n_pcs*pc_frac))
     selected_pcs = embed[:, selected_pcs_indices]
-    SpaGCN_cluster(selected_pcs, stdata, label, shape=shape)
+    SpaGCN_cluster(selected_pcs, stdata, label, shape=shape,target_num=target_num)
 
-def SpaGCN_cluster(selected_pcs, stdata,label,shape="square"):
+def SpaGCN_cluster(selected_pcs, stdata,label,shape="square",target_num=10):
     """Generate cluster label using SpaGCN
     Args:
         selected_pcs (np.ndarray): selected PCs
@@ -176,7 +176,7 @@ def SpaGCN_cluster(selected_pcs, stdata,label,shape="square"):
     adj_no_img=calculate_adj_matrix(x=x_pixel,y=y_pixel, histology=False)
     l=search_l(p=0.5, adj=adj_no_img, start=0.01, end=1000, tol=0.01, max_run=100)
     r_seed=t_seed=n_seed=100
-    res=search_res(stdata, adj_no_img, selected_pcs,l, target_num=9, start=0.7, step=0.1, tol=5e-3, lr=0.05, max_epochs=20, r_seed=r_seed, t_seed=t_seed, n_seed=n_seed)
+    res=search_res(stdata, adj_no_img, selected_pcs,l, target_num=target_num, start=0.7, step=0.1, tol=5e-3, lr=0.05, max_epochs=20, r_seed=r_seed, t_seed=t_seed, n_seed=n_seed)
     clf=SpaGCN()
     clf.set_l(l)
     random.seed(r_seed)
