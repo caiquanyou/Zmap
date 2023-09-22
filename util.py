@@ -33,7 +33,7 @@ def transfer_alabel(mapping_matrix:np.ndarray, stdata:anndata.AnnData, label:pd.
     Returns:
         label dataframe
     """
-    df = transform(annotation)
+    df = transform(label)
     ct_prob = pd.DataFrame(mapping_matrix.T @ df)
     ct_prob.index = stdata.obs.index
     return ct_prob
