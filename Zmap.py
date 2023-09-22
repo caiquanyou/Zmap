@@ -73,7 +73,7 @@ class Zmap:
                     self.cluster_label.append(label)
                     random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape)
                     self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
-                self.cluster_matrix = cluster_init/cluster_time
+                self.cluster_matrix = self.cluster_matrix/self.cluster_time
                 self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix,genes=self.genes,device = self.device)
         else:
             self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.cluster_thres)
