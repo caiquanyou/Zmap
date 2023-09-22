@@ -107,9 +107,9 @@ def cluster_mapping(scadata,stdata,genes=None,label='leiden',device = 'cpu',thre
     else:
         preprocess(scadata,cluster_bulk,genes)
     overlap_genes = scadata.uns["overlap"]
-    S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
-    Cbulk = np.array(cluster_bulk[:, overlap_genes].X, dtype="float32")
-    cluster_mapper = cell2clusters(S=S,G=Cbulk,device=device)
+    scdata = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
+    clusters = np.array(cluster_bulk[:, overlap_genes].X, dtype="float32")
+    cluster_mapper = cell2clusters(scdata=scdata,clusters=clusters,device=device)
     cluster_mapper_matrix = cluster_mapper.fit(num_epochs=500,learning_rate=0.1,print_each=100)
     cell_clu = transform(stdata.obs[label])
     cell_spot = cluster_mapper_matrix @ cell_clu.T
