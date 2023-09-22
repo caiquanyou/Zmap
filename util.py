@@ -21,7 +21,7 @@ def transform(label:pd.Series):
         label dataframe
     """
     df = pd.get_dummies(label)
-    return df
+    return df.values
 
 def transfer_alabel(mapping_matrix:np.ndarray, stdata:anndata.AnnData, label:pd.Series):
     """
