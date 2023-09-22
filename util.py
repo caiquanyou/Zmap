@@ -135,7 +135,7 @@ def preprocess(scdata, stdata ,genes=None):
     sc.pp.filter_genes(scdata, min_cells=1)
     if genes is None:
         genes = scdata.var.index
-    genes = list(set(genes) & set(scdata.var.index) & set(scdata.var.index))
+    genes = list(set(genes) & set(scdata.var.index) & set(stdata.var.index))
     scdata.uns["overlap"] = genes
 
 
