@@ -1,8 +1,11 @@
 from .util import *
 from .model import cell2clusters,cell2spots
 from .ot_model import solve_OT
+import lap
 import pandas as pd
+import numpy as np
 import scanpy as sc
+from sklearn.metrics.pairwise import cosine_similarity as cos_s
 class Zmap:
     def __init__(self, 
                 scdata, 
@@ -36,8 +39,8 @@ class Zmap:
         self.genes = genes
         self.histology = histology
         self.cluster_time = cluster_time
-        self.cluster_label = None
         self.custom_label = custom_label
+        self.cluster_label = None
         self.pca = pca
         self.n_pcs = n_pcs
         self.pc_frac = pc_frac
@@ -73,7 +76,7 @@ class Zmap:
                 for i in range(cluster_time):
                     label = 'clutimes_' + str(i)
                     self.cluster_label.append(label)
-                    random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape)
+                    random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
                     self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
                 self.cluster_matrix = self.cluster_matrix/self.cluster_time
                 self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
@@ -135,13 +138,13 @@ def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
     return mapping_matrix
 
 
-def sc2sc(method='max'):
+def sc2sc(scadata,stdata_raw,mapping_matrix,thres=0.5,method='max'):
     raw_ct = []
     st_x = []
     st_y = []
     select_ct = []
     select_gep = []
-    select_cells_num = np.sum(mapping_matrix>0.5,axis=0)
+    select_cells_num = np.sum(mapping_matrix>thres,axis=0)
     raw_spot_index = stdata_raw.obs['spot_index'].unique()
     for i in tqdm.tqdm(raw_spot_index):
         sorted_spot_indices = np.argsort(raw_spot_index)
@@ -162,3 +165,6 @@ def sc2sc(method='max'):
         raw_ct.extend(st_temp.obs.celltype.values.tolist())
         st_x.extend(st_temp.obs.x.values.tolist())
         st_y.extend(st_temp.obs.y.values.tolist())
+    cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=['subclass']),var=scadata.var)
+    cell_alocated_data.obsm['spatial'] = np.array([st_x,st_y]).T
+    return cell_alocated_data
