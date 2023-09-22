@@ -193,13 +193,15 @@ class cell2spots:
         self.y_index = torch.tensor(
             self.y_index, device=device, requires_grad=False, dtype=torch.int32
         )
-        if self.Gz is not None:
+        if Gz is not None:
             self.Gz = torch.tensor(Gz, device=device, dtype=torch.float32)
             self.z_length = np.int32(self.ST.obs['z'].max() - self.ST.obs['z'].min() +1)
             self.z_index = self.ST.obs['z'] - self.ST.obs['z'].min()
             self.z_index = torch.tensor(
                 self.z_index, device=device, requires_grad=False, dtype=torch.int32
             )
+        else:
+            self.Gz = Gz
         
     def _generate_Xstrips(self, M_probs):
         """
