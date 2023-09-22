@@ -118,9 +118,9 @@ def cluster_mapping(scadata,stdata,genes=None,label='leiden',device = 'cpu',thre
     else:
         return (cell_spot>thres).astype(int)
     
-def spot_mapping(adata,scadata,M,genes=None,device = 'cpu'):
-    x_bulk = generate_Xstrips(adata)
-    y_bulk = generate_Ystrips(adata)
+def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
+    x_bulk = generate_Xstrips(stdata)
+    y_bulk = generate_Ystrips(stdata)
     bx1 = sc.AnnData(X=x_bulk,var=stdata.var)
     bx2 = sc.AnnData(X=y_bulk,var=stdata.var)
     pp_data(scadata,bx1,bx2,genes)
@@ -128,7 +128,7 @@ def spot_mapping(adata,scadata,M,genes=None,device = 'cpu'):
     S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
     Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
     Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
-    ST=adata[:,overlap_genes]
+    ST=stdata[:,overlap_genes]
     mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,M=M,device=device).fit(learning_rate=0.1, num_epochs=1000, print_each=100)
     return mapping_matrix
 
