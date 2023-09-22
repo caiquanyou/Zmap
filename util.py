@@ -55,7 +55,7 @@ def generate_grid(stdata_raw,width):
     ny = int((y_max - y_min) // width)+1
     for i, cell in enumerate(stdata_raw):
         x, y = cell.obs['x'].values, cell.obs['y'].values
-        spot_idx = int(np.round(x/width) + np.round(y/width) * nx)
+        spot_idx = int(np.floor(x/width) + np.floor(y/width) * nx)
         stdata_raw.obs.loc[cell.obs.index[0],'spot_index'] = spot_idx
     stdata_raw_df = stdata_raw.to_df()
     stdata_raw_df['spot_index'] = stdata_raw.obs['spot_index'].values
