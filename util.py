@@ -169,8 +169,8 @@ def SpaGCN_cluster(selected_pcs, stdata,label,shape="square",target_num=10):
         cluster label stored in the sp data obs
     """
     prefilter_specialgenes(stdata)
-    sc.pp.normalize_per_cell(stdata)
-    sc.pp.log1p(stdata)
+    # sc.pp.normalize_per_cell(stdata)
+    # sc.pp.log1p(stdata)
     x_pixel=stdata.obs["x"].tolist()
     y_pixel=stdata.obs["y"].tolist()
     adj_no_img=calculate_adj_matrix(x=x_pixel,y=y_pixel, histology=False)
