@@ -197,8 +197,8 @@ def SpaGCN_cluster(selected_pcs, stdata,label,shape="square",target_num=10):
     stdata.obs[label]= y_pred
     stdata.obs[label]=stdata.obs[label].astype('category')
     refined_pred=refine(sample_id=stdata.obs.index.tolist(), pred=stdata.obs[label].tolist(), dis=adj_no_img, shape=shape)
-    stdata.obs["refined_"+label]=refined_pred
-    stdata.obs["refined_"+label]=stdata.obs["refined_"+label].astype('category')
+    stdata.obs[label]=refined_pred
+    stdata.obs[label]=stdata.obs[label].astype('category')
 
 
 def fastKnn(X1, 
