@@ -139,8 +139,7 @@ def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
     return mapping_matrix
 
 
-def sc2sc(scadata,stdata_raw,mapping_matrix,thres=0.5,method='max'):
-    raw_ct = []
+def sc2sc(scadata,stdata_raw,mapping_matrix,sc_label,thres=0.5,method='max'):
     st_x = []
     st_y = []
     select_ct = []
@@ -162,11 +161,10 @@ def sc2sc(scadata,stdata_raw,mapping_matrix,thres=0.5,method='max'):
         elif method=='lapjv':
             select_index = lap.lapjv(1-cos_result,extend_cost=True)[1]
         sc_select = scadata[np.argsort(mapping_matrix[:,index_of_spot], axis=0)[-num_cells:],:][select_index]
-        select_ct.extend(sc_select.obs.subclass.values.tolist())
+        select_ct.extend(sc_select.obs[sc_label].values.tolist())
         select_gep.append(sc_select.X.toarray())
-        raw_ct.extend(st_temp.obs.celltype.values.tolist())
         st_x.extend(st_temp.obs.x.values.tolist())
         st_y.extend(st_temp.obs.y.values.tolist())
-    cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=['subclass']),var=scadata.var)
+    cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=[sc_label]),var=scadata.var)
     cell_alocated_data.obsm['spatial'] = np.array([st_x,st_y]).T
     return cell_alocated_data
