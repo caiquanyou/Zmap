@@ -88,7 +88,7 @@ class cell2clusters:
         self.lambda_g1 = lambda_g1
         self.lambda_g2 = lambda_g2
         self.random_state = random_state
-        self.M = torch.tensor(
+        self.cluster_matrix = torch.tensor(
             np.random.normal(0, 1, (scdata.shape[0], clusters.shape[0])), device=device, requires_grad=True, dtype=torch.float32
         )
 
@@ -96,15 +96,15 @@ class cell2clusters:
         """
         cell2cluster loss function.
         """
-        M_probs = softmax(self.M, dim=1)
-        G_pred = torch.matmul(M_probs.t(), self.scdata)
-        gv_term = self.lambda_g1 * cosine_similarity(G_pred, self.clusters, dim=0).mean()
-        vg_term = self.lambda_g2 * cosine_similarity(G_pred, self.clusters, dim=1).mean()
-        expression_term = gv_term + vg_term
+        cluster_probs = softmax(self.cluster_matrix, dim=1)
+        G_rec = torch.matmul(cluster_probs.t(), self.scdata)
+        cluster_cos1 = self.lambda_g1 * cosine_similarity(G_rec, self.clusters, dim=0).mean()
+        cluster_cos2 = self.lambda_g2 * cosine_similarity(G_rec, self.clusters, dim=1).mean()
+        expression_term = cluster_cos1 + cluster_cos2
         total_loss = -expression_term
         if verbose:
             print("total_loss: {:.3f}".format(total_loss.tolist()))
-        return total_loss, gv_term, vg_term
+        return total_loss, cluster_cos1, cluster_cos2
     def fit(self, num_epochs=500, learning_rate=0.1, print_each=100):
         """
         Run the optimizer and returns the mapping outcome.
@@ -113,12 +113,12 @@ class cell2clusters:
             learning_rate (float): Optional. Learning rate for the optimizer. Default is 0.1.
             print_each (int): Optional. Prints the loss each print_each epochs. If None, the loss is never printed. Default is 100.
         Returns:
-            M (ndarray): is the optimized mapping matrix, shape = (number_cells, number_clusters).
+            cluster_probs (ndarray): is the optimized mapping matrix, shape = (number_cells, number_clusters).
         """
 
         if self.random_state:
             torch.manual_seed(seed=self.random_state)
-        optimizer = torch.optim.Adam([self.M], lr=learning_rate)
+        optimizer = torch.optim.Adam([self.cluster_matrix], lr=learning_rate)
         for t in range(num_epochs):
             if print_each is None or t % print_each != 0:
                 run_loss = self._loss_fn(verbose=False)
@@ -129,8 +129,8 @@ class cell2clusters:
             loss.backward()
             optimizer.step()
         with torch.no_grad():
-            output = softmax(self.M, dim=1).cpu().numpy()
-            return output
+            cluster_probs = softmax(self.cluster_matrix, dim=1).cpu().numpy()
+            return cluster_probs
 
 class cell2spots:
     """
@@ -153,7 +153,7 @@ class cell2spots:
         lambda_gy2=0,
         lambda_gz1=1,
         lambda_gz2=0,
-        M=None,
+        cluster_matrix=None,
         device="cpu",
         random_state=None,
     ):
@@ -169,18 +169,18 @@ class cell2spots:
         self.lambda_gz1 = lambda_gz1
         self.lambda_gz2 = lambda_gz2
         self.random_state = random_state
-        if M is None:
-            self.M = np.random.normal(0, 1, (S.shape[0], ST.shape[0]))
-            self.M = torch.tensor(
-                self.M, device=device, requires_grad=True, dtype=torch.float32
+        if cluster_matrix is None:
+            self.cluster_matrix = np.random.normal(0, 1, (S.shape[0], ST.shape[0]))
+            self.cluster_matrix = torch.tensor(
+                self.cluster_matrix, device=device, requires_grad=True, dtype=torch.float32
             )
         else:
-            self.M = M
-            self.M = torch.tensor(
-                self.M, device=device, requires_grad=True, dtype=torch.float32
+            self.cluster_matrix = cluster_matrix
+            self.cluster_matrix = torch.tensor(
+                self.cluster_matrix, device=device, requires_grad=True, dtype=torch.float32
             )
             # self.rawM = self.M.clone().detach() > 0
-            self.mask = self.M.clone().detach() < 1
+            self.mask = self.cluster_matrix.clone().detach() < 1
         self.device = device
         self.x_length = np.int32(self.ST.obs['x'].max() - self.ST.obs['x'].min() +1)
         self.y_length = np.int32(self.ST.obs['y'].max() - self.ST.obs['y'].min() +1)
@@ -203,15 +203,15 @@ class cell2spots:
         else:
             self.Gz = Gz
         
-    def _generate_Xstrips(self, M_probs):
+    def _generate_Xstrips(self, cluster_probs):
         """
         Generate X matrix
         """
         mapping_x = torch.zeros((self.x_length, self.S.shape[0]), device=self.device)
-        mapping_x.index_add_(0, self.x_index, M_probs.T)
+        mapping_x.index_add_(0, self.x_index, cluster_probs.T)
         return mapping_x
 
-    def _generate_Ystrips(self, M_probs):
+    def _generate_Ystrips(self, cluster_probs):
         """
         Generate Y matrix
         """
@@ -219,22 +219,22 @@ class cell2spots:
         mapping_y.index_add_(0, self.y_index, M_probs.T)
         return mapping_y
     
-    def _generate_Zstrips(self, M_probs):
+    def _generate_Zstrips(self, cluster_probs):
         """
         Generate Z matrix
         """
         mapping_z = torch.zeros((self.z_length, self.S.shape[0]), device=self.device)
-        mapping_z.index_add_(0, self.z_index, M_probs.T)
+        mapping_z.index_add_(0, self.z_index, cluster_probs.T)
         return mapping_z
 
     def _loss_fn(self, verbose=True):
         """
         cell2spot loss function.
         """
-        M_probs = softmax(self.M, dim=1)
-        mask_sum = torch.masked_select(M_probs,self.mask).mean() 
-        Mx = self._generate_Xstrips(M_probs)
-        My = self._generate_Ystrips(M_probs)
+        cluster_probs = softmax(self.cluster_matrix, dim=1)
+        mask_sum = torch.masked_select(cluster_probs,self.mask).mean() 
+        Mx = self._generate_Xstrips(cluster_probs)
+        My = self._generate_Ystrips(cluster_probs)
         dx_pred = torch.log(
             Mx.T.sum(axis=0) / Mx.shape[1]
         )  # KL wants the log in first argument
@@ -243,41 +243,41 @@ class cell2spots:
         )
         Gx_pred = torch.matmul(Mx, self.S)
         Gy_pred = torch.matmul(My, self.S)
-        x_gv_term = self.lambda_gx1 * cosine_similarity(Gx_pred, self.Gx, dim=0).mean()
-        x_vg_term = self.lambda_gx2 * cosine_similarity(Gx_pred, self.Gx, dim=1).mean()
-        y_gv_term = self.lambda_gy1 * cosine_similarity(Gy_pred, self.Gy, dim=0).mean()
-        y_vg_term = self.lambda_gy2 * cosine_similarity(Gy_pred, self.Gy, dim=1).mean()
-        expression_term_x = x_gv_term + x_vg_term
-        expression_term_y = y_gv_term + y_vg_term
-        main_x_loss = (x_gv_term / self.lambda_gx1).tolist()
-        main_y_loss = (y_gv_term / self.lambda_gy1).tolist()
-        x_vg_reg = (x_vg_term / self.lambda_gx2).tolist()
-        y_vg_reg = (y_vg_term / self.lambda_gy2).tolist()
-        total_loss = -expression_term_x - expression_term_y  + mask_sum
+        gx1 = self.lambda_gx1 * cosine_similarity(Gx_pred, self.Gx, dim=0).mean()
+        gx2 = self.lambda_gx2 * cosine_similarity(Gx_pred, self.Gx, dim=1).mean()
+        gy1 = self.lambda_gy1 * cosine_similarity(Gy_pred, self.Gy, dim=0).mean()
+        gy2 = self.lambda_gy2 * cosine_similarity(Gy_pred, self.Gy, dim=1).mean()
+        cos_x = gx1 + gx2
+        cos_y = gy1 + gy2
+        main_x_loss1 = (gx1 / self.lambda_gx1).tolist()
+        main_y_loss1 = (gy1 / self.lambda_gy1).tolist()
+        main_x_loss2 = (gx2 / self.lambda_gx2).tolist()
+        main_y_loss2 = (gy2 / self.lambda_gy2).tolist()
+        total_loss = -cos_x - cos_y  + mask_sum
         if self.Gz is not None:
-            Mz = self._generate_Zstrips(M_probs)
+            Mz = self._generate_Zstrips(cluster_probs)
             Gz_pred = torch.matmul(Mz, self.S)
-            z_gv_term = self.lambda_gz1 * cosine_similarity(Gz_pred, self.Gz, dim=0).mean()
-            z_vg_term = self.lambda_gz2 * cosine_similarity(Gz_pred, self.Gz, dim=1).mean()
-            main_z_loss = (z_gv_term / self.lambda_gz1).tolist()
-            z_vg_reg = (z_vg_term / self.lambda_gz2).tolist()
-            expression_term_z = z_gv_term + z_vg_term
-            total_loss = total_loss -expression_term_z 
+            gz1 = self.lambda_gz1 * cosine_similarity(Gz_pred, self.Gz, dim=0).mean()
+            gz2 = self.lambda_gz2 * cosine_similarity(Gz_pred, self.Gz, dim=1).mean()
+            main_z_loss1 = (gz1 / self.lambda_gz1).tolist()
+            main_z_loss2 = (gz2 / self.lambda_gz2).tolist()
+            cos_z = gz1 + gz2
+            total_loss = total_loss -cos_z 
             if verbose:
                 print("total_loss: {:.3f}".format(total_loss.tolist()))
             return (
                 total_loss,
-                main_x_loss,
-                main_y_loss,
-                main_z_loss,
+                main_x_loss1,
+                main_y_loss1,
+                main_z_loss1,
                 mask_sum)
         
         if verbose:
             print("total_loss: {:.3f}".format(total_loss.tolist()))
         return (
             total_loss,
-            main_x_loss,
-            main_y_loss,
+            main_x_loss1,
+            main_y_loss1,
             mask_sum)
 
     def fit(self, num_epochs, learning_rate=0.1, print_each=100):
@@ -292,7 +292,7 @@ class cell2spots:
         """
         if self.random_state:
             torch.manual_seed(seed=self.random_state)
-        optimizer = torch.optim.Adam([self.M], lr=learning_rate)
+        optimizer = torch.optim.Adam([self.cluster_matrix], lr=learning_rate)
         for t in range(num_epochs):
             if print_each is None or t % print_each != 0:
                 run_loss = self._loss_fn(verbose=False)
@@ -303,5 +303,5 @@ class cell2spots:
             loss.backward()
             optimizer.step()
         with torch.no_grad():
-            output = softmax(self.M, dim=1).cpu().numpy()
-            return output
+            spot_matrix = softmax(self.cluster_matrix, dim=1).cpu().numpy()
+            return spot_matrix
