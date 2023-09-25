@@ -5,6 +5,7 @@ import lap
 import pandas as pd
 import numpy as np
 import scanpy as sc
+import tqdm
 from sklearn.metrics.pairwise import cosine_similarity as cos_s
 class Zmap:
     def __init__(self, 
@@ -146,14 +147,15 @@ def sc2sc(scadata,stdata_raw,mapping_matrix,thres=0.5,method='max'):
     select_gep = []
     select_cells_num = np.sum(mapping_matrix>thres,axis=0)
     raw_spot_index = stdata_raw.obs['spot_index'].unique()
+    overlap_genes = scadata.uns["overlap"]
     for i in tqdm.tqdm(raw_spot_index):
         sorted_spot_indices = np.argsort(raw_spot_index)
         index_of_spot = np.where(raw_spot_index[sorted_spot_indices] == i)[0][0]
-        st_temp = stdata_raw[stdata_raw.obs['spot_index']==i][:,training_genes]
+        st_temp = stdata_raw[stdata_raw.obs['spot_index']==i][:,overlap_genes]
         num_cells = select_cells_num[index_of_spot]
         if num_cells==0:
             num_cells = st_temp.shape[0]
-        sc_temp = scadata[np.argsort(mapping_matrix[:,index_of_spot], axis=0)[-num_cells:],:][:,training_genes]
+        sc_temp = scadata[np.argsort(mapping_matrix[:,index_of_spot], axis=0)[-num_cells:],:][:,overlap_genes]
         cos_result = cos_s(sc_temp.X,st_temp.X.A).T
         if method=='max':
             select_index = np.argmax(cos_result, axis=1)
