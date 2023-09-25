@@ -55,7 +55,6 @@ class Zmap:
     def allocate(self):
         """
         This function is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset. 
-        It will train the Zmap algorithm on the scRNA-seq dataset and use the trained model to predict the spatial transcriptomics data.
         The output is a matrix with the same shape as the spatial transcriptomics data, where each element is a probability of the corresponding cell belonging to a specific cluster.
         The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata), the label for cell clusters (label), and the genes to be used for training (genes).
         The output is a matrix with the same shape as the spatial transcriptomics data, where each element is a probability of the corresponding cell belonging to a specific cluster.
@@ -89,7 +88,23 @@ class Zmap:
 
 
 
-def strips_mapping(scadata,bulk,genes=None,device = 'cpu',thres=None):
+def strips_mapping(
+    scadata,
+    bulk,
+    genes=None,
+    device = 'cpu',
+    thres=None):
+    """
+    this function is to map the scRNA-seq data to the strips bulk transcriptomics data
+    Args:
+        scadata (anndata.AnnData): scRNA-seq data
+        bulk (anndata.AnnData): bulk transcriptomics data
+        genes (list): genes to be used for mapping
+        device (str): device to be used for training
+        thres (floot): thres to filter small values
+    Return:
+        bulk_matrix (np.array): sc to bulk mapping matrix
+    """
     if genes is None:
         preprocess(scadata,bulk)
     else:
@@ -97,7 +112,7 @@ def strips_mapping(scadata,bulk,genes=None,device = 'cpu',thres=None):
     overlap_genes = scadata.uns["overlap"]
     S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
     G = np.array(bulk[:, overlap_genes].X, dtype="float32")
-    bulk_mapper = cell2clusters(S=S,G=G,device=device)
+    bulk_mapper = cell2clusters(scdata=S,clusters=G,device=device)
     bulk_matrix = bulk_mapper.fit(num_epochs=500,learning_rate=0.1,print_each=100)
     if thres == None:
         return bulk_matrix
@@ -105,7 +120,25 @@ def strips_mapping(scadata,bulk,genes=None,device = 'cpu',thres=None):
         bulk_matrix[bulk_matrix<thres]=0
         return bulk_matrix
 
-def cluster_mapping(scadata,stdata,genes=None,label='leiden',device = 'cpu',thres=None):
+def cluster_mapping(
+    scadata,
+    stdata,
+    genes=None,
+    label='leiden',
+    device = 'cpu',
+    thres=None):
+    """
+    Mapping the scRNA-seq data to the cluster transcriptomics data
+    Args:
+        scadata (anndata.AnnData): scRNA-seq data
+        stdata (anndata.AnnData): spatial transcriptomics data
+        genes (list): genes to be used for mapping
+        label (str): clusters label stored in the spatial data obs
+        device (str): device to be used for training
+        thres (floot): thres to filter small values
+    Return:
+        cluster_mapper_matrix (np.array): sc to cluster mapping matrix
+    """
     cluster_bulk = generate_cluster_exp(stdata,label=label)
     cluster_bulk = sc.AnnData(X=cluster_bulk,var=stdata.var)
     if genes is None:
@@ -124,7 +157,23 @@ def cluster_mapping(scadata,stdata,genes=None,label='leiden',device = 'cpu',thre
     else:
         return (cell_spot>thres).astype(int)
     
-def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
+def spot_mapping(
+    scadata,
+    stdata,
+    cluster_mapping_matrix,
+    genes=None,
+    device = 'cpu'):
+    """
+    Mapping the single cells to the spatial spots.
+    Args:
+        scadata (anndata.AnnData): scRNA-seq data
+        stdata (anndata.AnnData): spatial transcriptomics data
+        cluster_mapping_matrix (np.array): sc to cluster mapping matrix
+        genes (list): genes to be used for mapping
+        device (str): device to be used for training
+    Return:
+        mapping_matrix (np.array): single cells to spatial spots mapping matrix
+    """
     x_bulk = generate_Xstrips(stdata)
     y_bulk = generate_Ystrips(stdata)
     bx1 = sc.AnnData(X=x_bulk,var=stdata.var)
@@ -135,11 +184,29 @@ def spot_mapping(scadata,stdata,M,genes=None,device = 'cpu'):
     Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
     Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
     ST=stdata[:,overlap_genes]
-    mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,M=M,device=device).fit(learning_rate=0.1, num_epochs=1000, print_each=100)
+    mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=0.1, num_epochs=1000, print_each=100)
     return mapping_matrix
 
 
-def sc2sc(scadata,stdata_raw,mapping_matrix,sc_label,thres=0.5,method='max'):
+def sc2sc(
+    scadata,
+    stdata_raw,
+    mapping_matrix,
+    sc_label,
+    thres=0.5,
+    method='max'):
+    """
+    Mapping the single cells to the single cells of every spatial spots.
+    Args:
+        scadata (anndata.AnnData): scRNA-seq data
+        stdata_raw (anndata.AnnData): spatial transcriptomics data with single cell resolution.
+        mapping_matrix (np.array): sc to spots mapping matrix
+        sc_label (str): celltype label stored in the single-cell data obs
+        thres (floot): thres to filter small values
+        method (str): method to select the cells
+    Return:
+        cell_alocated_data (anndata.AnnData): scRNA-seq data with spatial information
+    """
     st_x = []
     st_y = []
     select_ct = []
