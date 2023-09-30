@@ -1,5 +1,3 @@
-|PyPI| |Docs| 
-
 Zmap: Single-cell spatial mapping by diverse space zoning plans（ZMap）
 =========================================================================
 .. raw:: html
