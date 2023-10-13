@@ -1,5 +1,5 @@
 from .util import *
-from .model import cell2clusters,cell2spots
+from .model import cell2clusters,cell2spots,cell2spots3D
 from .ot_model import solve_OT
 import lap
 import pandas as pd
@@ -8,27 +8,47 @@ import scanpy as sc
 import tqdm
 from sklearn.metrics.pairwise import cosine_similarity as cos_s
 class Zmap:
-    def __init__(self, 
-                scdata, 
-                stdata=None,
-                bulkX=None, 
-                bulkY=None, 
-                genes=None, 
-                histology=None, 
-                cluster_time=1, 
-                custom_label=None,
-                pca=None, 
-                n_pcs=50, 
-                pc_frac=0.5, 
-                target_num = 10,
-                cluster_thres=None,
-                emptygrid=None,
-                shape="square", 
-                device='cpu'):
+    """
+    This class is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset(or bulk RNA datasets).
+    It will use the Zmap algorithm on the scRNA-seq dataset and reconstructe a new spatial transcriptomics data.
+    The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata) or the bulk datasets (bulkX and bulkY), and the genes to be used (genes).
+    """
+    def __init__(
+        self, 
+        scdata, 
+        stdata=None,
+        bulkX=None, 
+        bulkY=None, 
+        genes=None, 
+        histology=None, 
+        cluster_time=1, 
+        custom_label=None,
+        pca=None, 
+        n_pcs=50, 
+        pc_frac=0.5, 
+        target_num = 10,
+        cluster_thres=None,
+        emptygrid=None,
+        shape="square", 
+        device='cpu'):
         """
-        This class is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset(or bulk RNA datasets). 
-        It will use the Zmap algorithm on the scRNA-seq dataset and reconstructe a new spatial transcriptomics data.
-        The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata) or the bulk datasets (bulkX and bulkY), and the genes to be used (genes).
+        Args:
+            scdata (anndata.AnnData): scRNA-seq data
+            stdata (anndata.AnnData): spatial transcriptomics data
+            bulkX (anndata.AnnData): bulk transcriptomics data, default is None
+            bulkY (anndata.AnnData): bulk transcriptomics data, default is None
+            genes (list): genes to be used for mapping
+            histology (np.array): histology data, default is None
+            cluster_time (int): numbers to run clustering
+            custom_label (str): label for the cluster
+            pca (str): pca method to be used,default is None
+            n_pcs (int): number of pcs to be used
+            pc_frac (float): fraction of pcs to be used
+            target_num (int): number of clusters
+            cluster_thres (float): thres to filter small values
+            emptygrid (np.array): empty grid matrix, 
+            shape (str): shape of the spatial transcriptomics data, default is "square", other option is "hexagon"
+            device (str): device to be used for training, default is 'cpu'
         """
         self.scdata = scdata
         self.stdata = stdata
@@ -55,7 +75,6 @@ class Zmap:
     def allocate(self):
         """
         This function is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset. 
-        The output is a matrix with the same shape as the spatial transcriptomics data, where each element is a probability of the corresponding cell belonging to a specific cluster.
         The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata), the label for cell clusters (label), and the genes to be used for training (genes).
         The output is a matrix with the same shape as the spatial transcriptomics data, where each element is a probability of the corresponding cell belonging to a specific cluster.
         """
@@ -68,6 +87,44 @@ class Zmap:
                 cluster_time = self.cluster_time - 1
                 self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
             else:
+                # self.cluster_label.append('All_pcs')
+                # cluster_time = self.cluster_time - 1
+                # random_cluster(self.stdata,label='All_pcs',n_pcs=self.n_pcs,pc_frac=1.0,samples_time=1,shape=self.shape,target_num = self.target_num)
+                # self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label='All_pcs',device = self.device,thres=self.cluster_thres)
+                cluster_time = self.cluster_time
+                self.cluster_matrix = 0
+            if cluster_time == 0:
+                self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
+            else:
+                for i in range(cluster_time):
+                    label = 'clutimes_' + str(i)
+                    self.cluster_label.append(label)
+                    random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
+                    self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
+                self.cluster_matrix = self.cluster_matrix/self.cluster_time
+                self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
+        else:
+            self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.cluster_thres)
+            self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.cluster_thres)
+            self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.cluster_thres,njob=8)
+    
+    def ot_allocate(self):
+        """
+        This function is used to run the optimal transport algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset.
+        """
+        if self.stdata is not None:
+            self.bulkX = generate_Xstrips(self.stdata)
+            self.bulkY = generate_Ystrips(self.stdata)
+            self.cluster_label = []
+            if self.custom_label is not None:
+                self.cluster_label.append(self.custom_label)
+                cluster_time = self.cluster_time - 1
+                self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
+            else:
+                # self.cluster_label.append('All_pcs')
+                # cluster_time = self.cluster_time - 1
+                # random_cluster(self.stdata,label='All_pcs',n_pcs=self.n_pcs,pc_frac=1.0,samples_time=1,shape=self.shape,target_num = self.target_num)
+                # self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label='All_pcs',device = self.device,thres=self.cluster_thres)
                 cluster_time = self.cluster_time
                 self.cluster_matrix = 0
             if cluster_time == 0:
@@ -85,6 +142,89 @@ class Zmap:
             self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.cluster_thres)
             self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.cluster_thres,njob=8)
 
+class Zmap3D:
+    """
+    For Visium mapping.
+    """
+    def __init__(
+        self, 
+        scdata, 
+        stdata,
+        genes=None, 
+        cluster_time=1, 
+        custom_label=None,
+        pca=None, 
+        n_pcs=50, 
+        pc_frac=0.5, 
+        target_num = 10,
+        cluster_thres=None,
+        shape="hexagon", 
+        device='cpu'):
+        """
+        Args:
+            scdata (anndata.AnnData): scRNA-seq data
+            stdata (anndata.AnnData): spatial transcriptomics data
+            genes (list): genes to be used for mapping
+            cluster_time (int): numbers to run clustering
+            custom_label (str): label for the cluster
+            pca (str): pca method to be used,default is None
+            n_pcs (int): number of pcs to be used
+            pc_frac (float): fraction of pcs to be used
+            target_num (int): number of clusters
+            cluster_thres (float): thres to filter small values
+            shape (str): shape of the spatial transcriptomics data, default is "square", other option is "hexagon"
+            device (str): device to be used for training, default is 'cpu'
+        """
+        self.scdata = scdata
+        self.stdata = stdata
+        self.genes = genes
+        self.cluster_time = cluster_time
+        self.custom_label = custom_label
+        self.cluster_label = None
+        self.pca = pca
+        self.n_pcs = n_pcs
+        self.pc_frac = pc_frac
+        self.target_num = target_num
+        self.cluster_thres = cluster_thres
+        self.cluster_matrix = None
+        self.spot_matrix = None
+        self.shape = shape
+        self.device = device
+    def set_para(self):
+        # define a parameters setting function
+        return None
+    def allocate(self):
+        """
+        This function is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset. 
+        The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata), the label for cell clusters (label), and the genes to be used for training (genes).
+        The output is a matrix with the same shape as the spatial transcriptomics data, where each element is a probability of the corresponding cell belonging to a specific cluster.
+        """
+        self.bulkX = generate_Xstrips(self.stdata)
+        self.bulkY = generate_Ystrips(self.stdata)
+        self.bulkY = generate_Zstrips(self.stdata)
+        self.cluster_label = []
+        if self.custom_label is not None:
+            self.cluster_label.append(self.custom_label)
+            cluster_time = self.cluster_time - 1
+            self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
+        else:
+            cluster_time = self.cluster_time
+            self.cluster_matrix = 0
+        if cluster_time == 0:
+            self.spot_matrix = spot_mapping3D(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
+        else:
+            for i in range(cluster_time):
+                label = 'clutimes_' + str(i)
+                self.cluster_label.append(label)
+                random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
+                self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
+            self.cluster_matrix = self.cluster_matrix/self.cluster_time
+            self.spot_matrix = spot_mapping3D(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
+
+
+
+
+
 
 
 
@@ -93,6 +233,8 @@ def strips_mapping(
     bulk,
     genes=None,
     device = 'cpu',
+    num_epochs = 500,
+    learning_rate = 0.1,
     thres=None):
     """
     this function is to map the scRNA-seq data to the strips bulk transcriptomics data
@@ -101,6 +243,8 @@ def strips_mapping(
         bulk (anndata.AnnData): bulk transcriptomics data
         genes (list): genes to be used for mapping
         device (str): device to be used for training
+        num_epochs (int): number of epochs to be used for training
+        learning_rate (float): learning rate to be used for training
         thres (floot): thres to filter small values
     Return:
         bulk_matrix (np.array): sc to bulk mapping matrix
@@ -113,7 +257,7 @@ def strips_mapping(
     S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
     G = np.array(bulk[:, overlap_genes].X, dtype="float32")
     bulk_mapper = cell2clusters(scdata=S,clusters=G,device=device)
-    bulk_matrix = bulk_mapper.fit(num_epochs=500,learning_rate=0.1,print_each=100)
+    bulk_matrix = bulk_mapper.fit(num_epochs=num_epochs,learning_rate=learning_rate,print_each=100)
     if thres == None:
         return bulk_matrix
     else:
@@ -126,6 +270,8 @@ def cluster_mapping(
     genes=None,
     label='leiden',
     device = 'cpu',
+    num_epochs = 500,
+    learning_rate = 0.1,
     thres=None):
     """
     Mapping the scRNA-seq data to the cluster transcriptomics data
@@ -135,6 +281,8 @@ def cluster_mapping(
         genes (list): genes to be used for mapping
         label (str): clusters label stored in the spatial data obs
         device (str): device to be used for training
+        num_epochs (int): number of epochs to be used for training
+        learning_rate (float): learning rate to be used for training
         thres (floot): thres to filter small values
     Return:
         cluster_mapper_matrix (np.array): sc to cluster mapping matrix
@@ -149,7 +297,7 @@ def cluster_mapping(
     scdata = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
     clusters = np.array(cluster_bulk[:, overlap_genes].X, dtype="float32")
     cluster_mapper = cell2clusters(scdata=scdata,clusters=clusters,device=device)
-    cluster_mapper_matrix = cluster_mapper.fit(num_epochs=500,learning_rate=0.1,print_each=100)
+    cluster_mapper_matrix = cluster_mapper.fit(num_epochs=num_epochs,learning_rate=learning_rate,print_each=100)
     cell_clu = transform(stdata.obs[label])
     cell_spot = cluster_mapper_matrix @ cell_clu.T
     if thres == None:
@@ -162,7 +310,9 @@ def spot_mapping(
     stdata,
     cluster_mapping_matrix,
     genes=None,
-    device = 'cpu'):
+    device = 'cpu',
+    num_epochs = 1000,
+    learning_rate = 0.1):
     """
     Mapping the single cells to the spatial spots.
     Args:
@@ -171,6 +321,8 @@ def spot_mapping(
         cluster_mapping_matrix (np.array): sc to cluster mapping matrix
         genes (list): genes to be used for mapping
         device (str): device to be used for training
+        num_epochs (int): number of epochs to be used for training
+        learning_rate (float): learning rate to be used for training
     Return:
         mapping_matrix (np.array): single cells to spatial spots mapping matrix
     """
@@ -184,9 +336,45 @@ def spot_mapping(
     Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
     Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
     ST=stdata[:,overlap_genes]
-    mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=0.1, num_epochs=1000, print_each=100)
+    mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=learning_rate, num_epochs=num_epochs, print_each=100)
     return mapping_matrix
 
+def spot_mapping3D(
+    scadata,
+    stdata,
+    cluster_mapping_matrix,
+    genes=None,
+    device = 'cpu',
+    num_epochs = 1000,
+    learning_rate = 0.1):
+    """
+    Mapping the single cells to the spatial spots.
+    Args:
+        scadata (anndata.AnnData): scRNA-seq data
+        stdata (anndata.AnnData): spatial transcriptomics data
+        cluster_mapping_matrix (np.array): sc to cluster mapping matrix
+        genes (list): genes to be used for mapping
+        device (str): device to be used for training
+        num_epochs (int): number of epochs to be used for training
+        learning_rate (float): learning rate to be used for training
+    Return:
+        mapping_matrix (np.array): single cells to spatial spots mapping matrix
+    """
+    x_bulk = generate_Xstrips(stdata)
+    y_bulk = generate_Ystrips(stdata)
+    z_bulk = generate_Zstrips(stdata)
+    bx1 = sc.AnnData(X=x_bulk,var=stdata.var)
+    bx2 = sc.AnnData(X=y_bulk,var=stdata.var)
+    bx3 = sc.AnnData(X=z_bulk,var=stdata.var)
+    preprocess(scadata,bx1,genes)
+    overlap_genes = scadata.uns["overlap"]
+    S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
+    Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
+    Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
+    Gx3 = np.array(bx3[:, overlap_genes].X, dtype="float32")
+    ST=stdata[:,overlap_genes]
+    mapping_matrix = cell2spots3D(S=S, ST=ST,Gx=Gx1, Gy=Gx2,Gz=Gx3,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=learning_rate, num_epochs=num_epochs, print_each=100)
+    return mapping_matrix
 
 def sc2sc(
     scadata,
