@@ -6,8 +6,6 @@ from scipy.sparse import issparse
 import torch
 from sklearn.decomposition import PCA
 import math
-import matplotlib.colors as clr
-import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
@@ -351,8 +349,8 @@ def detect_subclusters(cell_id, x, y, pred, target_cluster, radius=3, res=0.2):
     nbr[:,target_cluster]=nbr[:,target_cluster]-1
     nbr=sc.AnnData(nbr)
     sc.pp.neighbors(nbr, n_neighbors=10)
-    sc.tl.louvain(nbr,resolution=res)
-    sub_cluster=nbr.obs['louvain'].astype(int).to_numpy()
+    sc.tl.leiden(nbr,resolution=res)
+    sub_cluster=nbr.obs['leiden'].astype(int).to_numpy()
     target_df["sub_cluster"]=sub_cluster
     target_df["sub_cluster"]=target_df["sub_cluster"].astype('category')
     tmp=[]
@@ -432,7 +430,7 @@ def search_res(adata, adj,embed, l, target_num, start=0.4, step=0.1, tol=5e-3, l
     print("Start at res = ", res, "step = ", step)
     clf=SpaGCN()
     clf.set_l(l)
-    clf.train(adata,adj,embed,init_spa=True,init="louvain",res=res, tol=tol, lr=lr, max_epochs=max_epochs)
+    clf.train(adata,adj,embed,init_spa=True,init="leiden",res=res, tol=tol, lr=lr, max_epochs=max_epochs)
     y_pred, _=clf.predict()
     old_num=len(set(y_pred))
     print("Res = ", res, "Num of clusters = ", old_num)
@@ -444,7 +442,7 @@ def search_res(adata, adj,embed, l, target_num, start=0.4, step=0.1, tol=5e-3, l
         old_sign=1 if (old_num<target_num) else -1
         clf=SpaGCN()
         clf.set_l(l)
-        clf.train(adata,adj,embed,init_spa=True,init="louvain",res=res+step*old_sign, tol=tol, lr=lr, max_epochs=max_epochs)
+        clf.train(adata,adj,embed,init_spa=True,init="leiden",res=res+step*old_sign, tol=tol, lr=lr, max_epochs=max_epochs)
         y_pred, _=clf.predict()
         new_num=len(set(y_pred))
         print("Res = ", res+step*old_sign, "Num of clusters = ", new_num)
@@ -553,7 +551,7 @@ class simple_GC_DEC(nn.Module):
         p = p / torch.sum(p, dim=1, keepdim=True)
         return p
 
-    def fit(self, X,adj,  lr=0.001, max_epochs=5000, update_interval=3, trajectory_interval=50,weight_decay=5e-4,opt="sgd",init="louvain",n_neighbors=10,res=0.4,n_clusters=10,init_spa=True,tol=1e-3):
+    def fit(self, X,adj,  lr=0.001, max_epochs=5000, update_interval=3, trajectory_interval=50,weight_decay=5e-4,opt="sgd",init="leiden",n_neighbors=10,res=0.4,n_clusters=10,init_spa=True,tol=1e-3):
         self.trajectory=[]
         if opt=="sgd":
             optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
@@ -572,15 +570,15 @@ class simple_GC_DEC(nn.Module):
             else:
                 #------Kmeans only use exp info, no spatial
                 y_pred = kmeans.fit_predict(X)  #Here we use X as numpy
-        elif init=="louvain":
-            print("Initializing cluster centers with louvain, resolution = ", res)
+        elif init=="leiden":
+            print("Initializing cluster centers with leiden, resolution = ", res)
             if init_spa:
                 adata=sc.AnnData(features.detach().numpy())
             else:
                 adata=sc.AnnData(X)
             sc.pp.neighbors(adata, n_neighbors=n_neighbors)
-            sc.tl.louvain(adata,resolution=res)
-            y_pred=adata.obs['louvain'].astype(int).to_numpy()
+            sc.tl.leiden(adata,resolution=res)
+            y_pred=adata.obs['leiden'].astype(int).to_numpy()
             self.n_clusters=len(np.unique(y_pred))
         #----------------------------------------------------------------
         y_pred_last = y_pred
@@ -688,7 +686,7 @@ class GC_DEC(nn.Module):
         p = p / torch.sum(p, dim=1, keepdim=True)
         return p
 
-    def fit(self, X,adj, lr=0.001, max_epochs=10, update_interval=5, weight_decay=5e-4,opt="sgd",init="louvain",n_neighbors=10,res=0.4):
+    def fit(self, X,adj, lr=0.001, max_epochs=10, update_interval=5, weight_decay=5e-4,opt="sgd",init="leiden",n_neighbors=10,res=0.4):
         self.trajectory=[]
         print("Initializing cluster centers with kmeans.")
         if opt=="sgd":
@@ -706,11 +704,11 @@ class GC_DEC(nn.Module):
             #Kmeans use exp and spatial
             kmeans = KMeans(self.n_clusters, n_init=20)
             y_pred = kmeans.fit_predict(features.detach().numpy())
-        elif init=="louvain":
+        elif init=="leiden":
             adata=sc.AnnData(features.detach().numpy())
             sc.pp.neighbors(adata, n_neighbors=n_neighbors)
-            sc.tl.louvain(adata,resolution=res)
-            y_pred=adata.obs['louvain'].astype(int).to_numpy()
+            sc.tl.leiden(adata,resolution=res)
+            y_pred=adata.obs['leiden'].astype(int).to_numpy()
         #----------------------------------------------------------------
         X=torch.FloatTensor(X)
         adj=torch.FloatTensor(adj)
@@ -781,10 +779,10 @@ class SpaGCN(object):
             weight_decay=0,
             opt="admin",
             init_spa=True,
-            init="louvain", #louvain or kmeans
-            n_neighbors=10, #for louvain
+            init="leiden", #leiden or kmeans
+            n_neighbors=10, #for leiden
             n_clusters=None, #for kmeans
-            res=0.4, #for louvain
+            res=0.4, #for leiden
             tol=1e-3):
         self.num_pcs=num_pcs
         self.res=res
