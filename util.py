@@ -1,16 +1,19 @@
 import numpy as np
 import pandas as pd
 import scanpy as sc
-import leidenalg
-import igraph as ig
 import anndata
 from sklearn.decomposition import PCA
 from scipy.sparse import issparse
 import nmslib
 import random
+from math import sin,cos,pi,sqrt
 # import SpaGCN as spg
 from .custom_SpaGCN import *
 
+def rotation_exp(Mx,My,angle):
+    Mx_R = Mx * cos(angle) - My * sin(angle)
+    My_R = Mx * sin(angle) + My * cos(angle)
+    return Mx_R,My_R
 def transform(label:pd.Series):
     """
     This function takes the label column from the input dataframe and converts it into a one-hot encoded dataframe.
@@ -83,7 +86,7 @@ def generate_Xstrips(stdata):
     x_max = stdata.obs['array_col'].max()
     lenth = x_max-x_min+1
     j = 0
-    for i in range(lenth):
+    for i in range(np.int32(lenth)):
         idx = abs(stdata.obs['array_col'] - x_min - i) < 0.1
         if sum(idx)==0:
             continue
@@ -104,7 +107,7 @@ def generate_Ystrips(stdata):
     y_max = stdata.obs['array_row'].max()
     lenth = y_max-y_min+1
     j = 0
-    for i in range(lenth):
+    for i in range(np.int32(lenth)):
         idx = abs(stdata.obs['array_row'] - y_min - i) < 0.1
         if sum(idx)==0:
             continue
@@ -112,6 +115,27 @@ def generate_Ystrips(stdata):
         stdata.obs.loc[idx,'y'] = j
         j+=1
     return np.array(slides_y)
+
+def generate_Zstrips(stdata):
+    """Generate X strips
+    Args:
+        stdata (anndata): Visium data
+    Returns:
+        BYn: _description_
+    """
+    slides_z =  []
+    Mx_p,My_p = rotation_exp(stdata.obs['array_col'],stdata.obs['array_row'],angle=pi/4)
+    lenth = np.round((Mx_p.max()-Mx_p.min())/sqrt(2))+1
+    start_value = Mx_p.min()
+    j = 0 
+    for i in range(np.int32(lenth)):
+        idx = abs(Mx_p - start_value - i * sqrt(2)) < 0.1
+        if sum(idx)==0:
+            continue
+        slides_z.append(np.asarray(stdata.X[idx,:].sum(axis =0)).reshape(-1)) 
+        stdata.obs.loc[idx,'z'] = j
+        j += 1
+    return np.array(slides_z)
 
 def generate_cluster_exp(stdata,label):
     """Generate cluster expression
@@ -155,6 +179,7 @@ def random_cluster(stdata,label,n_pcs=50,pc_frac=0.5,samples_time=1,shape="squar
         pca.fit(stdata.X)
         embed=pca.transform(stdata.X)
     selected_pcs_indices = random.sample(range(n_pcs), int(n_pcs*pc_frac))
+    selected_pcs_indices.sort()
     selected_pcs = embed[:, selected_pcs_indices]
     SpaGCN_cluster(selected_pcs, stdata, label, shape=shape,target_num=target_num)
 
@@ -187,7 +212,7 @@ def SpaGCN_cluster(selected_pcs, stdata,label,shape="square",target_num=10):
         adj_no_img,
         selected_pcs,
         init_spa=True,
-        init="louvain",
+        init="leiden",
         res=res,
         tol=5e-3,
         lr=0.05,
@@ -259,3 +284,19 @@ def fastKnn(X1,
         distances = np.sqrt(distances)
     
     return(distances, indices)
+
+
+def sc_accu(recon_data, raw_st, recon_label,raw_label, nn=5,thres=1):
+    from sklearn.neighbors import KDTree
+    kdt = KDTree(recon_data.obsm['spatial'], leaf_size=30, metric='euclidean')
+    nn_result = kdt.query(recon_data.obsm['spatial'], k=nn, return_distance=False)
+    meta = recon_data.obs.reset_index()
+    mapping_dict = dict(zip(pd.Series(range(len(recon_data))), recon_data.obs[recon_label]))
+    column_names = [f"neighbor_{i}" for i in range(nn)]
+    results = pd.DataFrame(nn_result, columns=column_names)
+    results = results.apply(lambda col: col.map(mapping_dict))
+    results['True_ct'] = raw_st.obs[raw_label].values
+    required_matches = thres 
+    results['Matches'] = results[column_names].eq(results['True_ct'], axis=0).sum(axis=1)
+    results['Values_Equal'] = results['Matches'] >= required_matches
+    return results
