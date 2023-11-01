@@ -73,6 +73,16 @@ def generate_grid(stdata_raw,width):
     stdata.obs['array_row'] = stdata.obs['array_row'].astype('int32')
     return stdata
 
+def generate_emptygrid(stdata_raw,stdata):
+    """
+    This function is used to generate the emptygrid matrix.
+    """
+    emptygrid = np.zeros((1,int(stdata.obs['x'].max()+1)*int(stdata.obs['y'].max()+1)))
+    for i in stdata_raw.obs['spot_index'].unique():
+        emptygrid[:,int(i)] = 1
+    emptygrid = emptygrid.reshape(int(stdata.obs['y'].max()+1),int(stdata.obs['x'].max()+1))
+    return emptygrid
+
 
 def generate_Xstrips(stdata):
     """this function is to generate X strips, which is used for calculating the correlation matrix
@@ -287,16 +297,49 @@ def fastKnn(X1,
 
 
 def sc_accu(recon_data, raw_st, recon_label,raw_label, nn=5,thres=1):
+    """Calculate the accuracy of the reconstructed cell type
+    Args:
+        recon_data (anndata): reconstructed spatial data
+        raw_st (anndata): raw spatial data
+        recon_label (str): reconstructed cell type label
+        raw_label (str): raw cell type label
+        nn (int): number of nearest neighbors
+        thres (int): threshold of the number of matches
+    Returns:
+        accuracy of the reconstructed cell type
+    """
     from sklearn.neighbors import KDTree
     kdt = KDTree(recon_data.obsm['spatial'], leaf_size=30, metric='euclidean')
     nn_result = kdt.query(recon_data.obsm['spatial'], k=nn, return_distance=False)
     meta = recon_data.obs.reset_index()
-    mapping_dict = dict(zip(pd.Series(range(len(recon_data))), recon_data.obs[recon_label]))
+    mapping_dict = dict(zip(pd.Series(range(len(raw_st))), raw_st.obs[raw_label]))
     column_names = [f"neighbor_{i}" for i in range(nn)]
     results = pd.DataFrame(nn_result, columns=column_names)
     results = results.apply(lambda col: col.map(mapping_dict))
+    results['Recon_ct'] = recon_data.obs[recon_label].values
     results['True_ct'] = raw_st.obs[raw_label].values
     required_matches = thres 
-    results['Matches'] = results[column_names].eq(results['True_ct'], axis=0).sum(axis=1)
+    results['Matches'] = results[column_names].eq(results['Recon_ct'], axis=0).sum(axis=1)
     results['Values_Equal'] = results['Matches'] >= required_matches
     return results
+
+
+# tool not used
+
+def fast_pearson(v1, v2):
+    n = v1.shape[0]
+    sums = np.multiply.outer(v2.sum(0), v1.sum(0))
+    stds = np.multiply.outer(v2.std(0), v1.std(0))
+    correlation = (v2.T.dot(v1) - sums / n) / stds / n
+
+    return correlation
+
+
+def fast_spearman(v1, v2):        
+    v1 = pd.DataFrame(v1).rank().values
+    v2 = pd.DataFrame(v2).rank().values
+    n = v1.shape[0]
+    sums = np.multiply.outer(v2.sum(0), v1.sum(0))
+    stds = np.multiply.outer(v2.std(0), v1.std(0))
+    correlation = (v2.T.dot(v1) - sums / n) / stds / n
+    return correlation
