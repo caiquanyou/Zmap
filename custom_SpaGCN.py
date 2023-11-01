@@ -59,7 +59,7 @@ def calculate_adj_matrix(x, y, x_pixel=None, y_pixel=None, image=None, beta=49, 
 	if histology:
 		assert (x_pixel is not None) & (x_pixel is not None) & (image is not None)
 		assert (len(x)==len(x_pixel)) & (len(y)==len(y_pixel))
-		print("Calculateing adj matrix using histology image...")
+		# print("Calculateing adj matrix using histology image...")
 		#beta to control the range of neighbourhood when calculate grey vale for one spot
 		#alpha to control the color scale
 		beta_half=round(beta/2)
@@ -86,7 +86,7 @@ def calculate_adj_matrix(x, y, x_pixel=None, y_pixel=None, image=None, beta=49, 
 		print("Var of x,y,z = ", np.var(x),np.var(y),np.var(z))
 		X=np.array([x, y, z]).T.astype(np.float32)
 	else:
-		print("Calculateing adj matrix using xy only...")
+		# print("Calculateing adj matrix using xy only...")
 		X=np.array([x, y]).T.astype(np.float32)
 	return pairwise_distance(X)
 def prefilter_cells(adata,min_counts=None,max_counts=None,min_genes=200,max_genes=None):
@@ -99,7 +99,7 @@ def prefilter_cells(adata,min_counts=None,max_counts=None,min_genes=200,max_gene
     id_tmp=np.logical_and(id_tmp,sc.pp.filter_cells(adata.X,max_counts=max_counts)[0]) if max_counts is not None  else id_tmp
     adata._inplace_subset_obs(id_tmp)
     adata.raw=sc.pp.log1p(adata,copy=True) #check the rowname 
-    print("the var_names of adata.raw: adata.raw.var_names.is_unique=:",adata.raw.var_names.is_unique)
+    # print("the var_names of adata.raw: adata.raw.var_names.is_unique=:",adata.raw.var_names.is_unique)
    
 
 def prefilter_genes(adata,min_counts=None,max_counts=None,min_cells=10,max_cells=None):
@@ -134,34 +134,34 @@ def find_l(p, adj, start=0.5, end=2,sep=0.01, tol=0.01):
         print("L=", str(l), "P=", str(round(q,5)))
         if np.abs(p-q)<=tol:
             return l
-    print("l not found, try bigger range or smaller sep!")
+    # print("l not found, try bigger range or smaller sep!")
 
 def search_l(p, adj, start=0.01, end=1000, tol=0.01, max_run=100):
     run=0
     p_low=calculate_p(adj, start)
     p_high=calculate_p(adj, end)
     if p_low>p+tol:
-        print("l not found, try smaller start point.")
+        # print("l not found, try smaller start point.")
         return None
     elif p_high<p-tol:
-        print("l not found, try bigger end point.")
+        # print("l not found, try bigger end point.")
         return None
     elif  np.abs(p_low-p) <=tol:
-        print("recommended l = ", str(start))
+        # print("recommended l = ", str(start))
         return start
     elif  np.abs(p_high-p) <=tol:
-        print("recommended l = ", str(end))
+        # print("recommended l = ", str(end))
         return end
     while (p_low+tol)<p<(p_high-tol):
         run+=1
-        print("Run "+str(run)+": l ["+str(start)+", "+str(end)+"], p ["+str(p_low)+", "+str(p_high)+"]")
+        # print("Run "+str(run)+": l ["+str(start)+", "+str(end)+"], p ["+str(p_low)+", "+str(p_high)+"]")
         if run >max_run:
-            print("Exact l not found, closest values are:\n"+"l="+str(start)+": "+"p="+str(p_low)+"\nl="+str(end)+": "+"p="+str(p_high))
+            # print("Exact l not found, closest values are:\n"+"l="+str(start)+": "+"p="+str(p_low)+"\nl="+str(end)+": "+"p="+str(p_high))
             return None
         mid=(start+end)/2
         p_mid=calculate_p(adj, mid)
         if np.abs(p_mid-p)<=tol:
-            print("recommended l = ", str(mid))
+            # print("recommended l = ", str(mid))
             return mid
         if p_mid<=p:
             start=mid
@@ -191,27 +191,27 @@ def search_radius(target_cluster,cell_id, x, y, pred, start, end, num_min=8, num
     num_low=count_nbr(target_cluster,cell_id, x, y, pred, start)
     num_high=count_nbr(target_cluster,cell_id, x, y, pred, end)
     if num_min<=num_low<=num_max:
-        print("recommended radius = ", str(start))
+        # print("recommended radius = ", str(start))
         return start
     elif num_min<=num_high<=num_max:
-        print("recommended radius = ", str(end))
+        # print("recommended radius = ", str(end))
         return end
     elif num_low>num_max:
-        print("Try smaller start.")
+        # print("Try smaller start.")
         return None
     elif num_high<num_min:
-        print("Try bigger end.")
+        # print("Try bigger end.")
         return None
     while (num_low<num_min) and (num_high>num_min):
         run+=1
-        print("Run "+str(run)+": radius ["+str(start)+", "+str(end)+"], num_nbr ["+str(num_low)+", "+str(num_high)+"]")
+        # print("Run "+str(run)+": radius ["+str(start)+", "+str(end)+"], num_nbr ["+str(num_low)+", "+str(num_high)+"]")
         if run >max_run:
-            print("Exact radius not found, closest values are:\n"+"radius="+str(start)+": "+"num_nbr="+str(num_low)+"\nradius="+str(end)+": "+"num_nbr="+str(num_high))
+            # print("Exact radius not found, closest values are:\n"+"radius="+str(start)+": "+"num_nbr="+str(num_low)+"\nradius="+str(end)+": "+"num_nbr="+str(num_high))
             return None
         mid=(start+end)/2
         num_mid=count_nbr(target_cluster,cell_id, x, y, pred, mid)
         if num_min<=num_mid<=num_max:
-            print("recommended radius = ", str(mid), "num_nbr="+str(num_mid))
+            # print("recommended radius = ", str(mid), "num_nbr="+str(num_mid))
             return mid
         if num_mid<num_min:
             start=mid
@@ -243,8 +243,8 @@ def find_neighbor_clusters(target_cluster,cell_id, x, y, pred,radius, ratio=1/2)
     nbr_num_back=nbr_num.copy() #Backup
     nbr_num=[(k, v)  for k, v in nbr_num.items() if v>(ratio*cluster_num[k])]
     nbr_num.sort(key=lambda x: -x[1])
-    print("radius=", radius, "average number of neighbors for each spot is", np.mean(num_nbr))
-    print(" Cluster",target_cluster, "has neighbors:")
+    # print("radius=", radius, "average number of neighbors for each spot is", np.mean(num_nbr))
+    # print(" Cluster",target_cluster, "has neighbors:")
     for t in nbr_num:
         print("Dmain ", t[0], ": ",t[1])
     ret=[t[0] for t in nbr_num]
@@ -252,8 +252,8 @@ def find_neighbor_clusters(target_cluster,cell_id, x, y, pred,radius, ratio=1/2)
         nbr_num_back=[(k, v)  for k, v in nbr_num_back.items()]
         nbr_num_back.sort(key=lambda x: -x[1])
         ret=[nbr_num_back[0][0]]
-        print("No neighbor domain found, only return one potential neighbor domain:",ret)
-        print("Try bigger radius or smaller ratio.")
+        # print("No neighbor domain found, only return one potential neighbor domain:",ret)
+        # print("Try bigger radius or smaller ratio.")
     return ret
 
 
@@ -383,15 +383,15 @@ def find_meta_gene(input_adata,
         tmp=adata[((adata.obs["meta"]>np.mean(adata.obs[adata.obs["pred"]==target_domain]["meta"]))|(adata.obs["pred"]==target_domain))]
         tmp.obs["target"]=((tmp.obs["pred"]==target_domain)*1).astype('category').copy()
         if (len(set(tmp.obs["target"]))<2) or (np.min(tmp.obs["target"].value_counts().values)<5):
-            print("Meta gene is: ", meta_name)
+            # print("Meta gene is: ", meta_name)
             return meta_name, adata.obs["meta"].tolist()
         #DE
         sc.tl.rank_genes_groups(tmp, groupby="target",reference="rest", n_genes=1,method='wilcoxon')
         adj_g=tmp.uns['rank_genes_groups']["names"][0][0]
         add_g=tmp.uns['rank_genes_groups']["names"][0][1]
         meta_name_cur=meta_name+"+"+add_g+"-"+adj_g
-        print("Add gene: ", add_g)
-        print("Minus gene: ", adj_g)
+        # print("Add gene: ", add_g)
+        # print("Minus gene: ", adj_g)
         #Meta gene
         adata.obs[add_g]=adata.X[:,adata.var.index==add_g]
         adata.obs[adj_g]=adata.X[:,adata.var.index==adj_g]
@@ -402,23 +402,23 @@ def find_meta_gene(input_adata,
         if (early_stop==False) | ((num_non_target>=num_non_target_cur) & (mean_diff<=mean_diff_cur)):
             num_non_target=num_non_target_cur
             mean_diff=mean_diff_cur
-            print("Absolute mean change:", mean_diff)
-            print("Number of non-target spots reduced to:",num_non_target)
+            # print("Absolute mean change:", mean_diff)
+            # print("Number of non-target spots reduced to:",num_non_target)
         else:
-            print("Stopped!", "Previous Number of non-target spots",num_non_target, num_non_target_cur, mean_diff,mean_diff_cur)
-            print("Previous Number of non-target spots",num_non_target, num_non_target_cur, mean_diff,mean_diff_cur)
-            print("Previous Number of non-target spots",num_non_target)
-            print("Current Number of non-target spots",num_non_target_cur)
-            print("Absolute mean change", mean_diff)
-            print("===========================================================================")
-            print("Meta gene: ", meta_name)
-            print("===========================================================================")
+            # print("Stopped!", "Previous Number of non-target spots",num_non_target, num_non_target_cur, mean_diff,mean_diff_cur)
+            # print("Previous Number of non-target spots",num_non_target, num_non_target_cur, mean_diff,mean_diff_cur)
+            # print("Previous Number of non-target spots",num_non_target)
+            # print("Current Number of non-target spots",num_non_target_cur)
+            # print("Absolute mean change", mean_diff)
+            # print("===========================================================================")
+            # print("Meta gene: ", meta_name)
+            # print("===========================================================================")
             return meta_name, adata.obs["meta"].tolist()
         meta_name=meta_name_cur
         adata.obs["meta"]=adata.obs["meta_cur"]
-        print("===========================================================================")
-        print("Meta gene is: ", meta_name)
-        print("===========================================================================")
+        # print("===========================================================================")
+        # print("Meta gene is: ", meta_name)
+        # print("===========================================================================")
     return meta_name, adata.obs["meta"].tolist()
 
 
@@ -427,13 +427,13 @@ def search_res(adata, adj,embed, l, target_num, start=0.4, step=0.1, tol=5e-3, l
     torch.manual_seed(t_seed)
     np.random.seed(n_seed)
     res=start
-    print("Start at res = ", res, "step = ", step)
+    # print("Start at res = ", res, "step = ", step)
     clf=SpaGCN()
     clf.set_l(l)
     clf.train(adata,adj,embed,init_spa=True,init="leiden",res=res, tol=tol, lr=lr, max_epochs=max_epochs)
     y_pred, _=clf.predict()
     old_num=len(set(y_pred))
-    print("Res = ", res, "Num of clusters = ", old_num)
+    # print("Res = ", res, "Num of clusters = ", old_num)
     run=0
     while old_num!=target_num:
         random.seed(r_seed)
@@ -445,25 +445,25 @@ def search_res(adata, adj,embed, l, target_num, start=0.4, step=0.1, tol=5e-3, l
         clf.train(adata,adj,embed,init_spa=True,init="leiden",res=res+step*old_sign, tol=tol, lr=lr, max_epochs=max_epochs)
         y_pred, _=clf.predict()
         new_num=len(set(y_pred))
-        print("Res = ", res+step*old_sign, "Num of clusters = ", new_num)
+        # print("Res = ", res+step*old_sign, "Num of clusters = ", new_num)
         if new_num==target_num:
             res=res+step*old_sign
-            print("recommended res = ", str(res))
+            # print("recommended res = ", str(res))
             return res
         new_sign=1 if (new_num<target_num) else -1
         if new_sign==old_sign:
             res=res+step*old_sign
-            print("Res changed to", res)
+            # print("Res changed to", res)
             old_num=new_num
         else:
             step=step/2
-            print("Step changed to", step)
+            # print("Step changed to", step)
         if run >max_run:
-            print("Exact resolution not found")
-            print("Recommended res = ", str(res))
+            # print("Exact resolution not found")
+            # print("Recommended res = ", str(res))
             return res
         run+=1
-    print("recommended res = ", str(res))
+    # print("recommended res = ", str(res))
     return res
 
 
@@ -561,7 +561,7 @@ class simple_GC_DEC(nn.Module):
         features= self.gc(torch.FloatTensor(X),torch.FloatTensor(adj))
         #----------------------------------------------------------------        
         if init=="kmeans":
-            print("Initializing cluster centers with kmeans, n_clusters known")
+            # print("Initializing cluster centers with kmeans, n_clusters known")
             self.n_clusters=n_clusters
             kmeans = KMeans(self.n_clusters, n_init=20)
             if init_spa:
@@ -571,7 +571,7 @@ class simple_GC_DEC(nn.Module):
                 #------Kmeans only use exp info, no spatial
                 y_pred = kmeans.fit_predict(X)  #Here we use X as numpy
         elif init=="leiden":
-            print("Initializing cluster centers with leiden, resolution = ", res)
+            # print("Initializing cluster centers with leiden, resolution = ", res)
             if init_spa:
                 adata=sc.AnnData(features.detach().numpy())
             else:
@@ -597,8 +597,8 @@ class simple_GC_DEC(nn.Module):
             if epoch%update_interval == 0:
                 _, q = self.forward(X,adj)
                 p = self.target_distribution(q).data
-            if epoch%10==0:
-                print("Epoch ", epoch) 
+            # if epoch%10==0:
+            #     print("Epoch ", epoch) 
             optimizer.zero_grad()
             z,q = self(X, adj)
             loss = self.loss_function(p, q)
@@ -612,14 +612,14 @@ class simple_GC_DEC(nn.Module):
             delta_label = np.sum(y_pred != y_pred_last).astype(np.float32) / X.shape[0]
             y_pred_last = y_pred
             if epoch>0 and (epoch-1)%update_interval == 0 and delta_label < tol:
-                print('delta_label ', delta_label, '< tol ', tol)
-                print("Reach tolerance threshold. Stopping training.")
-                print("Total epoch:", epoch)
+                # print('delta_label ', delta_label, '< tol ', tol)
+                # print("Reach tolerance threshold. Stopping training.")
+                # print("Total epoch:", epoch)
                 break
 
 
     def fit_with_init(self, X,adj, init_y, lr=0.001, max_epochs=5000, update_interval=1, weight_decay=5e-4,opt="sgd"):
-        print("Initializing cluster centers with kmeans.")
+        # print("Initializing cluster centers with kmeans.")
         if opt=="sgd":
             optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
         elif opt=="admin":
@@ -688,7 +688,7 @@ class GC_DEC(nn.Module):
 
     def fit(self, X,adj, lr=0.001, max_epochs=10, update_interval=5, weight_decay=5e-4,opt="sgd",init="leiden",n_neighbors=10,res=0.4):
         self.trajectory=[]
-        print("Initializing cluster centers with kmeans.")
+        # print("Initializing cluster centers with kmeans.")
         if opt=="sgd":
             optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
         elif opt=="admin":
@@ -734,7 +734,7 @@ class GC_DEC(nn.Module):
             self.trajectory.append(torch.argmax(q, dim=1).data.cpu().numpy())
 
     def fit_with_init(self, X,adj, init_y, lr=0.001, max_epochs=10, update_interval=1, weight_decay=5e-4,opt="sgd"):
-        print("Initializing cluster centers with kmeans.")
+        # print("Initializing cluster centers with kmeans.")
         if opt=="sgd":
             optimizer = optim.SGD(self.parameters(), lr=lr, momentum=0.9)
         elif opt=="admin":
