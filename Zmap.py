@@ -3,6 +3,7 @@ from .model import cell2clusters,cell2spots,cell2spots3D
 from .ot_model import solve_OT
 import lap
 import pandas as pd
+from scipy.sparse import issparse
 import numpy as np
 import scanpy as sc
 import tqdm
@@ -28,6 +29,7 @@ class Zmap:
         pc_frac=0.5, 
         target_num = 10,
         cluster_thres=None,
+        ot_cluster_thres=0.01,
         emptygrid=None,
         shape="square", 
         device='cpu'):
@@ -67,6 +69,7 @@ class Zmap:
         self.pc_frac = pc_frac
         self.target_num = target_num
         self.cluster_thres = cluster_thres
+        self.ot_cluster_thres = ot_cluster_thres
         self.cluster_matrix = None
         self.spot_matrix = None
         self.shape = shape
@@ -86,6 +89,8 @@ class Zmap:
                 self.cluster_label.append(self.custom_label)
                 cluster_time = self.cluster_time - 1
                 self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
+                if self.cluster_thres is not None:
+                    self.cluster_matrix[self.cluster_matrix<0.01]=-1e15
             else:
                 # self.cluster_label.append('All_pcs')
                 # cluster_time = self.cluster_time - 1
@@ -99,52 +104,41 @@ class Zmap:
                 for i in range(cluster_time):
                     label = 'clutimes_' + str(i)
                     self.cluster_label.append(label)
+                    print("Start to run the %dth clustering."%i)
                     random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
+                    print("Start to run the %dth mapping."%i)
                     self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
                 self.cluster_matrix = self.cluster_matrix/self.cluster_time
+                if self.cluster_thres is not None:
+                    self.cluster_matrix[self.cluster_matrix<0.01]=-1e15
+                print("Start to run the spot mapping.")
                 self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
         else:
-            self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.cluster_thres)
-            self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.cluster_thres)
-            self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.cluster_thres,njob=8)
+            self.spot_matrix = spot_mapping(self.scdata,None,self.cluster_matrix.values,self.bulkX,self.bulkY,genes=self.genes,device = self.device)
     
     def ot_allocate(self):
         """
         This function is used to run the optimal transport algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset.
         """
         if self.stdata is not None:
-            self.bulkX = generate_Xstrips(self.stdata)
-            self.bulkY = generate_Ystrips(self.stdata)
-            self.cluster_label = []
-            if self.custom_label is not None:
-                self.cluster_label.append(self.custom_label)
-                cluster_time = self.cluster_time - 1
-                self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
-            else:
-                # self.cluster_label.append('All_pcs')
-                # cluster_time = self.cluster_time - 1
-                # random_cluster(self.stdata,label='All_pcs',n_pcs=self.n_pcs,pc_frac=1.0,samples_time=1,shape=self.shape,target_num = self.target_num)
-                # self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label='All_pcs',device = self.device,thres=self.cluster_thres)
-                cluster_time = self.cluster_time
-                self.cluster_matrix = 0
-            if cluster_time == 0:
-                self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
-            else:
-                for i in range(cluster_time):
-                    label = 'clutimes_' + str(i)
-                    self.cluster_label.append(label)
-                    random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
-                    self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
-                self.cluster_matrix = self.cluster_matrix/self.cluster_time
-                self.spot_matrix = spot_mapping(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
+            self.bulkX = sc.AnnData(X=generate_Xstrips(self.stdata),var=self.stdata.var)
+            self.bulkY = sc.AnnData(X=generate_Ystrips(self.stdata),var=self.stdata.var)
+            self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.ot_cluster_thres)
+            self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.ot_cluster_thres)
+            self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.ot_cluster_thres,njob=8)
         else:
-            self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.cluster_thres)
-            self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.cluster_thres)
-            self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.cluster_thres,njob=8)
+            self.scLocX = strips_mapping(self.scdata,self.bulkX,self.genes,device = self.device,thres=self.ot_cluster_thres)
+            self.scLocY = strips_mapping(self.scdata,self.bulkY,self.genes,device = self.device,thres=self.ot_cluster_thres)
+            self.spot_matrix = solve_OT(self.emptygrid,self.scLocX,self.scLocY,thres=self.ot_cluster_thres,njob=8)
 
+"""
+    For Visium mapping.
+"""
 class Zmap3D:
     """
-    For Visium mapping.
+    This class is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset(or bulk RNA datasets).
+    It will use the Zmap algorithm on the scRNA-seq dataset and reconstructe a new spatial transcriptomics data.
+    The input parameters are the scRNA-seq dataset (scadata), the spatial transcriptomics dataset (stdata) or the bulk datasets (bulkX and bulkY), and the genes to be used (genes).
     """
     def __init__(
         self, 
@@ -190,9 +184,7 @@ class Zmap3D:
         self.spot_matrix = None
         self.shape = shape
         self.device = device
-    def set_para(self):
-        # define a parameters setting function
-        return None
+
     def allocate(self):
         """
         This function is used to run the Zmap algorithm on a scRNA-seq dataset and a spatial transcriptomics dataset. 
@@ -207,6 +199,8 @@ class Zmap3D:
             self.cluster_label.append(self.custom_label)
             cluster_time = self.cluster_time - 1
             self.cluster_matrix = cluster_mapping(self.scdata,self.stdata,self.genes,label=self.custom_label,device = self.device,thres=self.cluster_thres)
+            if self.cluster_thres is not None:
+                self.cluster_matrix[self.cluster_matrix<0.01]=-1e15
         else:
             cluster_time = self.cluster_time
             self.cluster_matrix = 0
@@ -219,14 +213,9 @@ class Zmap3D:
                 random_cluster(self.stdata,label,n_pcs=self.n_pcs,pc_frac=self.pc_frac,samples_time=self.cluster_time,shape=self.shape,target_num = self.target_num)
                 self.cluster_matrix += cluster_mapping(self.scdata,self.stdata,self.genes,label=label,device = self.device,thres=self.cluster_thres)
             self.cluster_matrix = self.cluster_matrix/self.cluster_time
+            if self.cluster_thres is not None:
+                self.cluster_matrix[self.cluster_matrix<0.01]=-1e15
             self.spot_matrix = spot_mapping3D(self.scdata,self.stdata,self.cluster_matrix.values,genes=self.genes,device = self.device)
-
-
-
-
-
-
-
 
 def strips_mapping(
     scadata,
@@ -308,10 +297,12 @@ def cluster_mapping(
 def spot_mapping(
     scadata,
     stdata,
-    cluster_mapping_matrix,
+    cluster_mapping_matrix=None,
+    x_bulk=None,
+    y_bulk=None,
     genes=None,
     device = 'cpu',
-    num_epochs = 1000,
+    num_epochs = 500,
     learning_rate = 0.1):
     """
     Mapping the single cells to the spatial spots.
@@ -326,15 +317,17 @@ def spot_mapping(
     Return:
         mapping_matrix (np.array): single cells to spatial spots mapping matrix
     """
-    x_bulk = generate_Xstrips(stdata)
-    y_bulk = generate_Ystrips(stdata)
-    bx1 = sc.AnnData(X=x_bulk,var=stdata.var)
-    bx2 = sc.AnnData(X=y_bulk,var=stdata.var)
-    preprocess(scadata,bx1,genes)
+    if x_bulk is None and y_bulk is None:
+        x_bulk = sc.AnnData(X=generate_Xstrips(stdata),var=stdata.var)
+        y_bulk = sc.AnnData(X=generate_Ystrips(stdata),var=stdata.var)
+    preprocess(scadata,x_bulk,genes)
     overlap_genes = scadata.uns["overlap"]
     S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
-    Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
-    Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
+    Gx1 = np.array(x_bulk[:, overlap_genes].X, dtype="float32")
+    Gx2 = np.array(y_bulk[:, overlap_genes].X, dtype="float32")
+    if stdata is None:
+        mapping_matrix = cell2spots_strips(S=S,Gx=Gx1, Gy=Gx2,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=learning_rate, num_epochs=num_epochs, print_each=100)
+        return mapping_matrix
     ST=stdata[:,overlap_genes]
     mapping_matrix = cell2spots(S=S, ST=ST,Gx=Gx1, Gy=Gx2,cluster_matrix=cluster_mapping_matrix,device=device).fit(learning_rate=learning_rate, num_epochs=num_epochs, print_each=100)
     return mapping_matrix
@@ -345,7 +338,7 @@ def spot_mapping3D(
     cluster_mapping_matrix,
     genes=None,
     device = 'cpu',
-    num_epochs = 1000,
+    num_epochs = 500,
     learning_rate = 0.1):
     """
     Mapping the single cells to the spatial spots.
@@ -398,6 +391,7 @@ def sc2sc(
     st_x = []
     st_y = []
     select_ct = []
+    select_ct_index = []
     select_gep = []
     select_cells_num = np.sum(mapping_matrix>thres,axis=0)
     raw_spot_index = stdata_raw.obs['spot_index'].unique()
@@ -410,16 +404,17 @@ def sc2sc(
         if num_cells==0:
             num_cells = st_temp.shape[0]
         sc_temp = scadata[np.argsort(mapping_matrix[:,index_of_spot], axis=0)[-num_cells:],:][:,overlap_genes]
-        cos_result = cos_s(sc_temp.X,st_temp.X.A).T
+        cos_result = cos_s(sc_temp.X,st_temp.X).T
         if method=='max':
             select_index = np.argmax(cos_result, axis=1)
-        elif method=='lapjv':
+        elif method=='lap':
             select_index = lap.lapjv(1-cos_result,extend_cost=True)[1]
         sc_select = scadata[np.argsort(mapping_matrix[:,index_of_spot], axis=0)[-num_cells:],:][select_index]
         select_ct.extend(sc_select.obs[sc_label].values.tolist())
+        select_ct_index.extend(sc_select.obs.index.tolist())
         select_gep.append(sc_select.X.toarray())
         st_x.extend(st_temp.obs.x.values.tolist())
         st_y.extend(st_temp.obs.y.values.tolist())
-    cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=[sc_label]),var=scadata.var)
+    cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=[sc_label],index=select_ct_index),var=scadata.var)
     cell_alocated_data.obsm['spatial'] = np.array([st_x,st_y]).T
     return cell_alocated_data
