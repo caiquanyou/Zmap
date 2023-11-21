@@ -54,7 +54,6 @@ Usage
 	import Zmap as zm
 	
 
-Training phase:
 ---------------
 
 
@@ -64,17 +63,6 @@ Training phase:
 **Training:** 
 
 	
-**Output:**
-
-
-Mapping phase
----------------
-
-**Input:**
-
-
-**Mapping:**
-
 **Output:**
 
 Notebooks
