@@ -361,7 +361,7 @@ def spot_mapping3D(
     bx3 = sc.AnnData(X=z_bulk,var=stdata.var)
     preprocess(scadata,bx1,genes)
     overlap_genes = scadata.uns["overlap"]
-    S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32",)
+    S = np.array(scadata[:, overlap_genes].X.toarray(), dtype="float32")
     Gx1 = np.array(bx1[:, overlap_genes].X, dtype="float32")
     Gx2 = np.array(bx2[:, overlap_genes].X, dtype="float32")
     Gx3 = np.array(bx3[:, overlap_genes].X, dtype="float32")
@@ -418,3 +418,5 @@ def sc2sc(
     cell_alocated_data = sc.AnnData(np.vstack(select_gep),obs=pd.DataFrame(select_ct,columns=[sc_label],index=select_ct_index),var=scadata.var)
     cell_alocated_data.obsm['spatial'] = np.array([st_x,st_y]).T
     return cell_alocated_data
+
+
