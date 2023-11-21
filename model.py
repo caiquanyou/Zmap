@@ -483,7 +483,7 @@ class cell2spots_strips:
         My = self._generate_Ystrips(cluster_probs)
         dx_pred = torch.log(
             Mx.T.sum(axis=0) / Mx.shape[1]
-        )  # KL wants the log in first argument
+        ) 
         dy_pred = torch.log(
             My.T.sum(axis=0) / My.shape[1]
         )
