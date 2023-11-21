@@ -60,7 +60,7 @@ def generate_grid(stdata_raw,width):
         x, y = cell.obs['x'].values, cell.obs['y'].values
         spot_idx = int(np.floor(x/width) + np.floor(y/width) * nx)
         stdata_raw.obs.loc[cell.obs.index[0],'spot_index'] = spot_idx
-    stdata_raw_df = stdata_raw.to_df()
+    stdata_raw_df = stdata_raw.to_df() # big mem
     stdata_raw_df['spot_index'] = stdata_raw.obs['spot_index'].values
     stdata_raw_ep = stdata_raw_df.groupby('spot_index').sum()
     stdata = sc.AnnData(X=stdata_raw_ep.values,var=stdata_raw.var)
@@ -134,6 +134,7 @@ def generate_Zstrips(stdata):
         BYn: _description_
     """
     slides_z =  []
+    # Mx_p,My_p = rotation_exp(stdata.obs['array_col'],stdata.obs['array_row'],angle=pi/4)
     Mx_p,My_p = rotation_exp(stdata.obs['array_col'],stdata.obs['array_row'],angle=pi/4)
     lenth = np.round((Mx_p.max()-Mx_p.min())/sqrt(2))+1
     start_value = Mx_p.min()
