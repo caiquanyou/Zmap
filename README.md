@@ -25,7 +25,7 @@ Alternatively, install via PyPI using:
 Usage
 -----
 After installation, Polyomino can be used in Python as follows:
-
+ ```python
     import Polyomino as plmo
     import scanpy as sc
     scdata = sc.read_h5ad('/Path/to/scdata.h5ad')
@@ -34,7 +34,7 @@ After installation, Polyomino can be used in Python as follows:
     plmo_object = plmo.Polyomino(scdata,stdata_grid,cluster_time=1,device='cpu')
     plmo_object.allocate()
     cell_alocated_data = plmo.sc2sc(scdata, stdata, plmo_object.spot_matrix,thres=0.1,method='max')
-
+```
 Also can running in terminal:
  ```bash
 polyomino \
