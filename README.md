@@ -1,3 +1,4 @@
+<img src='logo.png' align="right" height="200" /></a>
 Mapping cell locations via multi-layer regionalization constraints
 =========================================================================
 
