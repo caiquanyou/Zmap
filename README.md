@@ -28,6 +28,21 @@ After installation, Polyomino can be used in Python as follows:
 
     import Polyomino as plmo
 
+Also can running in terminal:
+ ```bash
+polyomino \
+    -sc SC_path \
+    -st ST_path \
+    -w Width_of_grid \
+    [-o OUTPUT] \
+    [--cluster_time CLUSTER_TIME] \
+    [--custom_region CUSTOM_REGION] \
+    [--cluster_thres CLUSTER_THRES] \
+    [--thres THRES] \
+    [--method {max,lap}] \
+    [--device {cpu,cuda}]
+```
+
 Contributing
 ------------
 Contributions to Polyomino are welcome. Please refer to the project's issues and pull requests for areas where you can help.
