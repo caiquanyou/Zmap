@@ -20,7 +20,7 @@ To install from GitHub:
 
 Alternatively, install via PyPI using:
 
-    pip install Polyomino
+    pip install polyomino-sc
 
 Usage
 -----
