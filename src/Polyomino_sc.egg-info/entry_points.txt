@@ -1,3 +1,0 @@
-[console_scripts]
-polyomino = Polyomino.Polyomino:main_Polyomino
-
