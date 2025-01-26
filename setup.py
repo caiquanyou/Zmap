@@ -4,10 +4,10 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.rst").read_text()
 setup(
-    name='Polyomino-sc',
-    version='1.0.1',
+    name='Zmap-sc',
+    version='1.0.0',
     description='An algorithm framework employing multi-layered regional constraints to accurately assign cell locations, enhancing spatial accuracy and resilience to noise.',
-    url='https://github.com/caiquanyou/Polyomino',
+    url='https://github.com/caiquanyou/Zmap',
     author='Cai Quanyou',
     author_email='cai_quanyou@gibh.ac.cn',
     python_requires='>=3.8.0',
@@ -29,7 +29,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'polyomino=Polyomino.Polyomino:main_Polyomino',
+            'zmap=Zmap.Zmap:main_Zmap',
         ]},
     classifiers=["Programming Language :: Python :: 3.8", "Operating System :: MacOS",],
     include_package_data=False
